@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Pixel Nova · Estatísticas</title>
+  <style>
+    :root { --bg: #f6f7fb; --card: #fff; --ink: #1c2130; --muted: #6b7280; --line: #e5e7eb; --accent: #2563eb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+    header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--line); }
+    header h1 { font-size: 18px; margin: 0 auto 0 0; }
+    input, select, button { font: inherit; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+    input { min-width: 280px; }
+    button { background: var(--accent); color: #fff; border-color: var(--accent); cursor: pointer; }
+    main { padding: 20px; max-width: 1300px; margin: 0 auto; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+    .card b { display: block; font-size: 24px; margin-top: 2px; }
+    .card span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow: auto; }
+    h2 { font-size: 14px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; white-space: nowrap; }
+    th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; }
+    td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+    .bar { height: 6px; background: var(--accent); border-radius: 3px; min-width: 2px; }
+    #msg { padding: 16px 20px; color: var(--muted); }
+    code { background: #eef2ff; padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Pixel Nova · Estatísticas</h1>
+    <input id="url" placeholder="URL do worker (https://....workers.dev)" />
+    <input id="key" placeholder="chave do administrador" type="password" style="min-width: 200px" />
+    <select id="days"><option value="7">7 dias</option><option value="30" selected>30 dias</option><option value="90">90 dias</option><option value="365">1 ano</option></select>
+    <button id="go">Carregar</button>
+  </header>
+  <div id="msg">Informe a URL do worker e a chave (ficam guardadas só neste navegador). Também aceita <code>?key=...&url=...</code> na URL. Ver <code>scripts/stats-worker.js</code>.</div>
+  <main id="main" hidden>
+    <div class="cards" id="cards"></div>
+    <div class="grid" id="tables"></div>
+    <section><h2>Eventos recentes</h2><div id="events"></div></section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const q = new URLSearchParams(location.search);
+    $('url').value = q.get('url') || localStorage.getItem('pn.url') || '';
+    $('key').value = q.get('key') || localStorage.getItem('pn.key') || '';
+    $('go').onclick = load;
+    if ($('url').value && $('key').value) load();
+
+    const DIFF = ['Fácil', 'Normal', 'Difícil'];
+    const fmtTime = (s) => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}h${String(m).padStart(2, '0')}` : `${m}min`; };
+    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    async function load() {
+      const url = $('url').value.trim().replace(/\/+$/, '').replace(/\/event$/, ''), key = $('key').value.trim(), days = $('days').value;
+      if (!/^https?:\/\//.test(url)) { $('msg').textContent = 'Falta a URL do worker (ex.: https://pixel-nova-stats.SEU-USUARIO.workers.dev). Ainda não publicou o worker? Veja scripts/stats-worker.js no repositório.'; return; }
+      if (!key) { $('msg').textContent = 'Falta a chave do administrador (a que você definiu com "wrangler secret put ADMIN_KEY").'; return; }
+      localStorage.setItem('pn.url', url); localStorage.setItem('pn.key', key);
+      $('msg').textContent = 'Carregando...';
+      try {
+        const r = await fetch(`${url}/data?key=${encodeURIComponent(key)}&days=${days}`).catch(() => { throw new Error('não foi possível conectar ao worker (URL errada ou worker fora do ar)'); });
+        if (r.status === 403) throw new Error('chave do administrador incorreta');
+        if (!r.ok) throw new Error(`o worker respondeu ${r.status}`);
+        const data = await r.json().catch(() => { throw new Error('a resposta não é JSON: confira se a URL é a do worker'); });
+        render(data, Number(days));
+        $('msg').textContent = '';
+        $('main').hidden = false;
+      } catch (e) { $('msg').textContent = `Erro: ${e.message}`; }
+    }
+
+    function count(list, keyFn, valFn = () => 1) {
+      const m = new Map();
+      for (const e of list) { const k = keyFn(e) ?? '—'; m.set(k, (m.get(k) || 0) + valFn(e)); }
+      return [...m].sort((a, b) => b[1] - a[1]);
+    }
+
+    function table(title, rows, cols, fmt = (v) => v) {
+      const max = Math.max(1, ...rows.map((r) => r[1]));
+      return `<section><h2>${title}</h2><table><tr><th>${cols[0]}</th><th class="n">${cols[1]}</th><th style="width:40%"></th></tr>${rows.slice(0, 25).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${fmt(v)}</td><td><div class="bar" style="width:${(v / max) * 100}%"></div></td></tr>`).join('')}</table></section>`;
+    }
+
+    function render(all, days) {
+      all.sort((a, b) => (b.received || '').localeCompare(a.received || ''));
+      const sessions = all.filter((e) => e.type === 'session');
+      const runs = all.filter((e) => e.type === 'run');
+      const plays = all.filter((e) => e.type === 'run' || e.type === 'progress');
+      const devices = new Set(all.map((e) => e.device)).size;
+      const ips = new Set(all.map((e) => e.ip)).size;
+      const playSec = plays.reduce((a, e) => a + (e.seconds || 0), 0);
+      const wins = runs.filter((e) => e.won);
+      const cards = [
+        ['Eventos', all.length], ['Sessões', sessions.length], ['Aparelhos únicos', devices], ['IPs únicos', ips],
+        ['Partidas terminadas', runs.length], ['Tempo de jogo (soma)', fmtTime(playSec)], ['Média por partida', fmtTime(runs.length ? runs.reduce((a, e) => a + (e.seconds || 0), 0) / runs.length : 0)],
+        ['Histórias concluídas', wins.length], ['Instalado (PWA)', `${Math.round((100 * sessions.filter((e) => e.standalone).length) / Math.max(1, sessions.length))}%`],
+      ];
+      $('cards').innerHTML = cards.map(([k, v]) => `<div class="card"><span>${k}</span><b>${v}</b></div>`).join('');
+
+      const byDay = count(sessions, (e) => (e.received || '').slice(0, 10)).sort((a, b) => a[0].localeCompare(b[0]));
+      $('tables').innerHTML = [
+        table('Sessões por dia', byDay, ['Dia', 'Sessões']),
+        table('Por país', count(sessions, (e) => e.country), ['País', 'Sessões']),
+        table('Por região / cidade', count(sessions, (e) => [e.country, e.region, e.city].filter(Boolean).join(' · ')), ['Local', 'Sessões']),
+        table('Tempo por modo', count(plays, (e) => e.mode, (e) => e.seconds || 0), ['Modo', 'Tempo'], fmtTime),
+        table('Partidas por modo e dificuldade', count(runs, (e) => `${e.mode} · ${DIFF[e.diff] ?? e.diff}`), ['Modo', 'Partidas']),
+        table('Setor alcançado (arcade)', count(runs.filter((e) => e.mode === 'arcade'), (e) => `setor ${e.sector}`), ['Setor', 'Partidas']),
+        table('Naves usadas', count(plays, (e) => e.ship), ['Nave', 'Partidas']),
+        table('Versão do jogo', count(sessions, (e) => e.version), ['Versão', 'Sessões']),
+        table('Idioma', count(sessions, (e) => e.lang), ['Idioma', 'Sessões']),
+        table('Tela', count(sessions, (e) => e.screen), ['Resolução', 'Sessões']),
+      ].join('');
+
+      const cols = ['received', 'type', 'ip', 'country', 'region', 'city', 'mode', 'diff', 'sector', 'score', 'seconds', 'kills', 'deaths', 'ship', 'won', 'version', 'lang', 'standalone', 'device'];
+      $('events').innerHTML = `<table><tr>${cols.map((c) => `<th>${c}</th>`).join('')}</tr>${all.slice(0, 300).map((e) => `<tr>${cols.map((c) => `<td>${esc(c === 'received' ? (e[c] || '').replace('T', ' ').slice(0, 19) : c === 'diff' ? DIFF[e[c]] ?? '' : c === 'seconds' ? (e[c] ? fmtTime(e[c]) : '') : c === 'device' ? (e[c] || '').slice(0, 6) : e[c] === true ? 'sim' : e[c] === false ? '' : e[c])}</td>`).join('')}</tr>`).join('')}</table>`;
+    }
+  </script>
+</body>
+</html>

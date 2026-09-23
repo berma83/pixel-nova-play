@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#05060a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <!-- "black" = barra de status opaca com o jogo abaixo dela. Com "black-translucent" o iOS 26 aplica um fade embaçado sobre o topo do jogo. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="Pixel Nova" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="./icon-192.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <title>Pixel Nova</title>
+    <style>html,body{overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;background:#05060a;margin:0;position:fixed;inset:0;overflow:hidden}body{justify-content:center;align-items:center;display:flex}body.touch.portrait{padding-top:env(safe-area-inset-top);align-items:flex-start}canvas{image-rendering:pixelated;image-rendering:crisp-edges;cursor:none;touch-action:none;background:#000}body.touch canvas{cursor:default}#touch{pointer-events:none;font:700 13px ui-monospace,Menlo,Consolas,monospace;display:none;position:fixed;inset:0}body.touch #touch{display:block}#touch .cluster{bottom:calc(14px + env(safe-area-inset-bottom));pointer-events:none;display:none;position:absolute}#touch .left{left:calc(14px + env(safe-area-inset-left))}#touch .right{right:calc(14px + env(safe-area-inset-right));text-align:right}body.lefty #touch .left.play{left:auto;right:calc(14px + env(safe-area-inset-right))}body.lefty #touch .right.play{right:auto;left:calc(14px + env(safe-area-inset-left));text-align:left}#touch[data-mode=menu] .menu,#touch[data-mode=play] .play{display:block}body.portrait #touch .play{bottom:calc(var(--hud,50px) + env(safe-area-inset-bottom))}#touch .play button{background:#060a1a73}body.portrait #touch .left.play{top:calc(30px + var(--hudtop,0px) + env(safe-area-inset-top));bottom:auto;left:auto;right:10px}body.portrait.lefty #touch .left.play{left:10px;right:auto}body.portrait #touch .pause{width:46px;height:34px}#touch button{pointer-events:auto;touch-action:none;font:inherit;color:#c2c3c7;letter-spacing:1px;background:#060a1ad1;border:2px solid #1d2b53;border-top-color:#065ab5;border-radius:10px;margin:0;padding:0}#touch button.on{color:#fff1e8;background:#065ab5}.dpad{grid-template-rows:repeat(3,54px);grid-template-columns:repeat(3,54px);gap:4px;display:grid}.dpad button{font-size:20px}.dpad .u{grid-area:1/2}.dpad .l{grid-area:2/1}.dpad .r{grid-area:2/3}.dpad .d{grid-area:3/2}#touch .ok{color:#00e436;border-color:#008751;border-radius:50%;width:96px;height:96px;font-size:18px}#touch .back{width:96px;height:44px;margin:0 0 10px auto;display:block}#touch .bomb{color:#ffa300;border-color:#ab5236;border-radius:50%;width:92px;height:92px;font-size:14px}#touch .pause{width:64px;height:44px}.dpad .fs{color:#83769c;grid-area:2/2;font-size:16px;display:none}.dpad .fs.can{display:block}</style>
+    <script type="module" crossorigin src="./assets/index-Y1Rz05dL.js"></script>
+  </head>
+  <body>
+    <canvas id="game" width="256" height="320"></canvas>
+    <div id="touch" data-mode="menu">
+      <div class="cluster left menu">
+        <div class="dpad">
+          <button class="u" data-act="up" aria-label="Cima">▲</button>
+          <button class="l" data-act="left" aria-label="Esquerda">◀</button>
+          <button class="r" data-act="right" aria-label="Direita">▶</button>
+          <button class="d" data-act="down" aria-label="Baixo">▼</button>
+          <button class="fs" data-act="full" aria-label="Tela cheia">⛶</button>
+        </div>
+      </div>
+      <div class="cluster right menu">
+        <button class="back" data-act="cancel">VOLTAR</button>
+        <button class="ok" data-act="confirm">OK</button>
+      </div>
+      <div class="cluster left play">
+        <button class="pause" data-act="pause" aria-label="Pausa">II</button>
+      </div>
+      <div class="cluster right play">
+        <button class="bomb" data-act="bomb">BOMBA</button>
+      </div>
+    </div>
+  </body>
+</html>
